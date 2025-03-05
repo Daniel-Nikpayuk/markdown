@@ -1,7 +1,7 @@
 # C++ Continuation Constructing Template Meta Programming Library
 -------------------
 
-A self-contained library of tools to prototype and build lexers, parsers, as well as compilers.
+A self-contained library of tools for prototyping and building lexers, parsers, as well as compilers.
 
 ## Philosophy
 
@@ -68,6 +68,7 @@ The major paradigm of this library is to introduce an algebra of proof assistant
 based on formal type theory. I reference the following two textbooks as theoretical sources:
 
 [Type Theory and Functional Programming](https://www.cs.kent.ac.uk/people/staff/sjt/TTFP/ttfp.pdf)
+
 [Homotopy Type Theory](https://homotopytypetheory.org/book/)
 
 Think of these proof assistants as secondary or *second-tier* type systems to be used in conjunction
