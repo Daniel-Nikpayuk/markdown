@@ -5,16 +5,12 @@ A self-contained library of tools for prototyping and building lexers, parsers, 
 
 ## Philosophy
 
-Modern C++ needs to be **safe** C++. The code in this library is intended to meet the following requirements:
+Modern C++ needs to be **safe** C++. The code in this library is intended to meet the following designs:
 
 1. Language tools such as lexers, parsers, and compilers need to be safe, expressive, potent.
 2. Such tools demand the highest level of scrutiny when it comes logical consistency.
 3. Achieving both consistency and performance in tooling is *preferred*.
 4. When a tradeoff is required, consistency of tooling is *privileged* over performance.
-
-## Motivation
-
-## Fundraising
 
 ## Methodology
 
@@ -27,9 +23,9 @@ differs in how it actually goes about trying to achieve this goal.
 
 In particular, I claim C++17 and above are already powerful enough that safe extensions can be simulated
 at compile time, to be used in the compilation process without additional cost to run time performance.
-This is achieved through several techniques making use of C++'s multiparadigm design.
+This is achieved through several techniques making use of C++'s multiparadigm features.
 
-Before continuing, I should clarify this library does not use other libraries
+Before continuing, I should clarify this library does **not** use other libraries
 such as Boost or even the C++ standard (std::).
 
 ### Method Equip
@@ -39,23 +35,24 @@ to be compatible with compile time (constant expression) use:
 
 ![A graphic showing the relationships between objects of the method equip paradigm.](readme/method_equip_paradigm.png)
 
-Models are classes intended to hold simple data structures (such as C style arrays) and as few methods as possible.
-They have no pointer members which means they can be assigned as constexpr values. Models also have a special
-collection of *equip* member functions:
+Models are classes intended to hold simple data structures (such as C style arrays) and as few member functions
+as possible. They have no pointer members which means they can be assigned as constexpr values. As these models
+are intended for compile time use, the their memory sizes are expected to be known in advance. Models also have
+a special collection of *equip* member functions:
 
 ![A screenshot of C++ code showing how method equip member functions are defined.](readme/equip_member_function.png)
 
-This technique can be considered a variation of *dependency injection*, but the overall idea is to modularize
-the member functions out of data structure classes: Instead of hardcoding the member functions into a single model
+This paradigm can be considered a variation of *dependency injection*, but the overall idea is to modularize
+member functions out of data structure classes: Instead of hardcoding the member functions into a single model
 class, we equip the models with method classes as needed.
 
-For example we may wish to push a value to an array in one context, but in another we might want to prevent
-pushing duplicate values. This can be done as two separate array classes, or even two separate member functions
+For example we may wish to *push* a value to an array in one context, but in another we might want to push
+without duplicate values. This can be done as two separate array classes, or even two separate member functions
 within the same class, but the method equip paradigm allows us to achieve the same effect while keeping code
 organization cleaner, and with the ability to reuse names (such as "push").
 
 This also means we can call method classes inside the definitions of other method classes that share the same model,
-which is a very powerful technique used critically in this library.
+which is a very powerful technique used critically throughout this library.
 
 Finally, this paradigm is compile time compatible because it shifts the use of temporary pointers to method classes
 whose lifetimes themselves are meant to be temporary.
@@ -90,12 +87,13 @@ The idea is, once you introduce the *identity* type as well as dependent types s
 you can then represent mathematical **specifications** as objects within the type system itself.
 
 The bigger picture is that specifications can be defined within the type system, and then **proofs**
-(which are also represented in the type system) can be given as well as verified to show that objects
-of interest meet our required restrictions.
+(which are also represented in the type system) can be given and verified to show that objects
+of interest meet our requirements.
 
 #### Compile Time Use
 
-Modern C++ offers the *constexpr* keyword. Because of this, we can refine our conceptualization of *compile time*:
+Modern C++ offers the *constexpr* keyword. Because of this,
+we can refine our understanding of what *compile time* means:
 
 1. **metacompile time** - C++ objects/values are immutable and can generally be passed as template parameters.
 2. **metarun time** - C++ objects/values are mutable within restricted scopes. They are not able to be passed as
@@ -110,9 +108,9 @@ benefits in adhering to this style of design.
 
 Running constexpr code at compile time has tradeoffs.
 
-One of the greatest advantages is safety: When the compiler runs your code at compile time it is acting
-as an interpreter. Compilers more than any other software require strict guarantees such as the guarantee they
-will **halt**. For example: Is your program compiling? Or is the compiler stuck in an infinite loop?
+One of the greatest advantages is safety: When the compiler runs your code at compile time it is acting as
+an interpreter. Compilers more than any other software require strict guarantees such as the assurance that
+they will **halt**. For example: Is your program compiling? Or is the compiler stuck in an infinite loop?
 
 Due to these strict requirements, C++ compilers do not allow *undefined behaviour* while running compile time code.
 This prevents entire classes of bugs within these type systems when they're used at compile time.
@@ -120,10 +118,11 @@ This prevents entire classes of bugs within these type systems when they're used
 With that said, one of the greatest disadvantages is compiler resource requirements:
 
 -GCC -fconstexpr-depth=2048
+
 -Clang -fconstexpr-steps=2097152 (2^21)
 
-Related to this is performance: Interpreters tend to be orders of magnitude slower than running code which is first
-compiled. If done well, the slowdown is in the seconds range. If done poorly, it's in the minutes range or longer.
+Related to this is performance: Interpreters tend to be orders of magnitude slower than running compiled code.
+If done well, the slowdown is in the seconds range. If done poorly, it's in the minutes range or longer.
 
 ##### Metacompilation
 
@@ -153,111 +152,161 @@ As for continuation constructing machines, C++ compilers end up recognizing this
 C++ functions which run directly on hardware. This is to say: The VM approach creates larger binary
 file sizes, and is slower than the CCM approach in terms of performance.
 
+I will add that although CCM is an emergent effect, it is of sound design. I have given two talks about it here:
+
+[C++ is a metacompiler - C++Now 2024](https://www.youtube.com/watch?v=IgNSBXypwrY)
+
+[C++ is a metacompiler - CppNorth 2024](https://www.youtube.com/watch?v=zngToaBjHVk)
+
 ### Proof Orientation
 
-The type systems allow one to declare and define two varations of type values:
+The type systems of this library offer two ways to declare values:
 
-1. Abstract -
-2. Concrete -
+1. Abstract - Values which are internal to the type system itself.
+2. Concrete - Symbolic addresses representing values stored external to the type system.
+
+If a given type system lives at compile time, then so do its abstract values. It is the policy of these
+type systems that abstract values are immutable and unique. These restrictions allow us to compress the
+representation of values using indirection. They also free us from the equivalent of pointer lifetime bugs
+that would otherwise occur through internal indirections.
+
+If a given type system lives at compile time, then so do its concrete addresses. As such addresses are symbolic,
+they can be used to reference memory being used during *metarun time* or even **_runtime_** itself.
+
+This leads us to the critical paradigm of this library: Extending C++
+object oriented programming to become C++ *proof oriented programming*.
+
+One of the major features of object oriented programming is the ability to define member values and member functions.
+We can now simulate this by assigning a compile time type system to a C++ class defined with a simple memory container
+such as std::array or std::vector.
+
+The assumption is the type system will contain the desired functions (and even constant values),
+as well as the structural information needed to complete the C++ class definition:
+
+![A screenshot of C++ code showing the definition of a proof oriented class](readme/proof_oriented_class.png)
+
+As our type system consists of *algebraic data types*, it is sufficiently expressive to represent any possible
+data structure---these type systems are in fact *universal* data structures.
+
+By simulating object oriented programming in this way, we are also extending their abilities. During the construction
+of a given type system (at metarun time), we can create specifications and proofs demonstrating the class we're about
+to define has certain properties of interest. This is similar to *C++ concepts* except it is much more powerful as
+we can prove any *mathematical truth* about these types, values, and functions.
+
+We also create an improved interface for compile time error messages. A string type can be defined as a list
+of characters, where a character is a cotuple of the four of utf\_char types distinguished by byte size:
+
+Utf8String := List Utf8Char
+
+Utf8Char   := (Utf8Char1 | Utf8Char2 | Utf8Char3 | Utf8Char4)
+
+From there, when our code recognizes an error, it can log it as a string and short-circuit. Once our type system
+is constructed we check if it has any errors, if so we can use the logged message to dispatch accordingly.
 
 ### Self Hosting
 
+For as important is the proof oriented paradigm is, it is matched with a self hosting paradigm.
+
+Self hosting is the pattern of using a programming language to write its own compiler. This paradigm is well
+suited for prototyping variations on compiler designs. In the context of compile time programming, it also mitigates
+the use of compiler resources, as well as compilation units, and thus compile times themselves.
+
+It should be noted that I choose to use the term *semiself hosting* to distinguish the fact that this library
+is not intended to build a full C++ compiler: It is intended to build lexer and parser generators, as well as
+specific lexers and parsers themselves.
+
+The main technique for achieving semiself hosting within this
+library is the use of embedded domain specific languages (DSLs).
+
 #### Domain Specific Languages
 
+The idea is we build a version 0.0.0 parser generator, and we use compile time C++ to do it.
+We do the same for a lexer generator. With these we then build a small number of domain specific languages.
+
+The goal is to use these initial DSLs to make it easier to generate type system byte code for functions.
+Once this is achieved, we use these DSLs to generate byte code for version 1.0.0 lexer and parser generators.
+Once we have such generators defined as types and values internal to our type system, we can specify and
+prove their consistency and reliability.
+
+We then use these generators and DSLs to build richer DSLs that allow us to rebuild our base tools yet again.
+This is the meaning of semiself hosting within this library.
+
+It all sounds nice, but is this achievable?
+
+I have already built a proof of concept parser generator along with two DSLs respectively named
+**chord** and **hustle**. The *chord* language offers grammar to readily create functional operators
+{ repeat, map, fold, find, sift }, and otherwise gives a grammatical appearance similar to assembly languages.
+As for *hustle*, it is intended to be a *scheme*-like (lisp) language.
+
 #### Serialization
+
+As our type systems grow in complexity, either by growing our inventory of functions or proofs, how do we
+mitigate slow metacompile times? The short answer: *Serialization*.
+
+One of the reasons I chose the *method equip* paradigm for designing the compile time data structures of this
+library is because it aligns well with serialization. The type systems of this library are in actuality each
+a handful of numerical arrays. It means they are easy to print out to file. It also means they are easy to read
+back in to rebuild a given type system.
+
+This means we can build, analyze, verify functions, specifications, and proofs at metarun time, then write that
+data to file to later be read back in as a compile time object. In effect we are saving our work. This is similar
+to the way C++ compilers build object code which can be linked during final compilation.
+
+There are several benefits to doing serialization in this way.
+
+For starters, rather than type checking a bytecode function every single time we run (and rerun) the compiler,
+we can write a type checking specification and prove the given function to be valid. If we keep the proof we
+don't need to reverify each time unless prompted to do so.
+
+Another advantage is being able to allocate accurate model sizes. When building type systems at compile time
+the first time around, we would allocate extra memory not knowing how much we need in advance. When the type
+system of interest has stabilized, it can be written to file using only as much memory is required. When
+reading the type system arrays back in, we now know in advance the exact memory size we need and so can
+optimize memory use with that in mind.
 
 ### Interoperability
 
 How do these second-tier type systems interoperate with C++'s type system?
 
-In C++17 through C++23 it has some limits. Notably 
+In C++17 through C++23 it has some limits. Notably floating point numbers. The the type systems are currently
+designed in C++17, and only support internal arrays of a given integer type. As consequence, representing
+floating point numbers as *abstract values* must be simulated which comes with tradeoffs.
 
-In C++26 it does not.
+The other consideration is whether or not we can represent C++'s non-builtin types within these type systems.
+Any solution to this consideration requires byte alignment tools, which either aren't supported or aren't
+easily supported at compile time.
+
+The first consequence here is that abstract values require ad-hoc designs to achieve interoperability.
+As for concrete values, if such values are in fact proper runtime values, placement new solves interoperability
+issues as our array memory is preallocated.
+
+In anycase, it should be noted that C++26 does not have any of these problems.
 
 #### C++26
+
+C++26 is well suited for implementing this library. It has a number of features which are of immediate use:
+
+-variadic indexing
+-static\_assert
+-placement new
+-#embed
+
+Variadic indexing can be used to simplify continuation constructing machines. Static assert means the error
+messages of our compile time type systems can be directly printed out as part of the compiler's own error message.
+Placement new can be used at compile time, meaning floating point numbers can be represented, and byte alignment
+can be used to map C++'s non-builtin types directly into and out of these second-tier type systems.
+
+## Motivation
+
+## Fundraising
 
 ## Roadmap
 
 The timeline given here is done so under the assumption that this project is being worked on full-time.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-A general purpose library oriented around and built on top of a *metapiler*
-paradigm: It offers the ability to translate embedded sublanguages (represented as
-constexpr string literals) into constexpr functions. This paradigm allows for
-the creation of domain specific languages to ease the creation of domain specific
-modules and sublibraries.
-
-This metapiler paradigm is achieved using a combination of constexpr and TMP magic.
-Emphasis is on constexpr for reliability and performance, but even when TMP is used,
-its design adheres as closely as possible to Type Theory with the intent of keeping
-it reasonably type safe. The frontend (lexer/parser) components are constexpr oriented,
-referencing The Dragon Book on compiler theory for their implementation. The backend
-achieves its translation by making use of a theoretical correspondence between assembly
-language and an extension of continuation passing style.
-
-This project is currently proof of concept, with the following roadmap leading to
-a version 1.0 release:
-
-a) The major goal for a version 1.0 release is to build two embedded domain specific languages (DSL) which will then be used
-to rebuild as much of this library as is reasonable. The idea is for it to be semi-self hosting.
-
-b) The first DSL is call Chord: It is a generic assembly which supports a chord progression paradigm. This chord progression
-paradigm offers grammar to create functional operators { repeat, map, fold, find, sift }.
-
-c) The second DSL is a Scheme-like language called Hustle: It is intended to be as close to Scheme as is reasonable given
-the differences in their underlying computational models.
-
-d) Both languages will be implemented using a common DSL Engine which supports a common continuation assembly language.
-
-e) Continuation Assembly: This is a metaobject assembly (used to build constexpr functions through continuation machines).
-I will be adding markup instructions so that DSL architects can encode documentation into their front end translations.
-I will (re)implement my Chord and Hustle langs to do the same, and will provide an initial -O0 backend.
-
-f) Higher Order Functions: The Hustle lang should be able to pass expressions as arguments to function calls.
-This becomes a problem relative to the underlying continuation machine type system. This problem will be solved
-by adding in new continuation machines to support expression trampolining. Notably, it is the conditional expression
-(if pred ante conse) that complicates things.
-
-As such, I will add in machines that compute the predicate function, which then returns a deferral:
-
-A deferral is a pair that holds the branching subroutines as compile time objects, and holds the predicate return
-as a constexpr runtime bool value. The thing to note is that the function created to evaluate the expression is guaranteed
-to return a single type. Once returned, we check to see if it is a trampolined value: If so we try again and reevaluate,
-otherwise we pass the resolved value to the next instruction accordingly.
-This works because we're within a larger continuation's scope.
-
-The Hustle lang will need to be tweaked to update this approach.
-
-g) Syntax Tree Exposure:
-
-For the initial purpose of encoding data structures within the continuation assembly, and in particular the intent
-of creating a DSL to freely manipulate tuples (while deferring tuple type commitment), a syntax tree IR is required.
-
-The hustle lang is a natural choice to support this, and as such I've decided I will add in grammar to work
-with both C++ (imported) types, as well as this syntax tree IR. What this means in the long run is that
-the Hustle lang will also need to support the ability to convert between these representations.
-
 h) Add in lexer, structure, and LR(1) generators;
 i) add in error messaging.
 j) add in unit tests.
-
-At such a point the project's version 1.0 will be done. I intend to leave backend optimizers to others.
-As this project grows and stabilizes, I hope you find it to be of interest, and even maybe some use.
-
 
 Thank you.
 
